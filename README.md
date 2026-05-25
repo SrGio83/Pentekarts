@@ -19,6 +19,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "better-sqlite3": "^12.4.1",
     "dotenv": "^17.2.3",
+    "esbuild": "^0.28.0",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -29,16 +30,17 @@
     "react-router-dom": "^7.13.1",
     "react-zoom-pan-pinch": "^3.7.0",
     "recharts": "^3.8.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
     "vite": "^6.2.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "autoprefixer": "^10.4.21",
-    "esbuild": "^0.28.0",
-    "tailwindcss": "^4.1.14",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "autoprefixer": "^10.4.21"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
