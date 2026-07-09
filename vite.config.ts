@@ -23,7 +23,7 @@ db.exec(`
     logo TEXT,
     season TEXT DEFAULT '2026'
   );
-console.log("--- teams CREATED ---");
+
   CREATE TABLE IF NOT EXISTS drivers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -34,7 +34,7 @@ console.log("--- teams CREATED ---");
     season TEXT DEFAULT '2026',
     FOREIGN KEY (teamId) REFERENCES teams(id)
   );
-console.log("--- drivers CREATED ---");
+
   CREATE TABLE IF NOT EXISTS races (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
