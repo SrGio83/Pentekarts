@@ -23,7 +23,7 @@ db.exec(`
     logo TEXT,
     season TEXT DEFAULT '2026'
   );
-
+console.log("--- teams CREATED ---");
   CREATE TABLE IF NOT EXISTS drivers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -34,7 +34,7 @@ db.exec(`
     season TEXT DEFAULT '2026',
     FOREIGN KEY (teamId) REFERENCES teams(id)
   );
-
+console.log("--- drivers CREATED ---");
   CREATE TABLE IF NOT EXISTS races (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -63,7 +63,7 @@ db.exec(`
     content TEXT NOT NULL
   );
 `);
-
+console.log("--- SEED DATA ---");
 // Seed data if empty
 const teamCount = db.prepare("SELECT count(*) as count FROM teams").get() as { count: number };
 if (teamCount.count === 0) {
@@ -132,7 +132,7 @@ if (reglamentoCount.count === 0) {
     'Descalificación: Por conducta antideportiva grave o ignorar banderas negras.'
   ]));
 }
-
+console.log("--- START SERVER---");
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -254,7 +254,7 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Server is running" });
   });
-
+console.log("--- PDF Processing Endpoint---");
   // PDF Processing Endpoint
   const upload = multer({ storage: multer.memoryStorage() });
 
