@@ -273,7 +273,7 @@ console.log("--- PDF Processing Endpoint---");
     }
   });
   */
-
+console.log("--- Vite middleware for development---");
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -287,10 +287,10 @@ console.log("--- PDF Processing Endpoint---");
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
-
+console.log("--- Server running---");
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
-
+console.log("--- startServer()---");
 startServer();
