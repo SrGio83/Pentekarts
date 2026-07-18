@@ -1,58 +1,106 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Titillium+Web:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700&display=swap');
-@import url('https://fonts.cdnfonts.com/css/formula1');
-@import "tailwindcss";
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Trophy, Calendar, Users, Home, Info, Play, Gamepad2, Settings, Menu, X, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
-@theme {
-  --font-sans: "Titillium Web", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Formula1-Regular", "Titillium Web", "Space Grotesk", sans-serif;
-  --font-f1-wide: "Formula1-Wide", "Titillium Web", sans-serif;
-  --font-f1-bold: "Formula1-Bold", "Titillium Web", sans-serif;
-  --font-f1-black: "Formula1-Black", "Titillium Web", sans-serif;
-  --color-f1-red: #E10600;
-  --color-f1-black: #15151E;
-  --color-f1-dark: #101017;
-  --color-f1-gray: #38383F;
-}
-
-@layer base {
-  body {
-    @apply bg-white text-f1-black font-sans transition-colors duration-300;
-  }
+const Navbar = () => {
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold uppercase tracking-tighter text-f1-black transition-colors duration-300;
-  }
-}
+  const navItems = [
+    { name: 'Inicio', path: '/', icon: Home },
+    { name: 'Equipos y Pilotos', path: '/equipos', icon: Users },
+    { name: 'Calendario', path: '/calendario', icon: Calendar },
+    { name: 'Clasificación', path: '/clasificacion', icon: Trophy },
+    { name: 'Estadísticas', path: '/estadisticas', icon: Award },
+    { name: 'Reglamento', path: '/reglamento', icon: Info },
+    { name: 'Videos', path: '/videos', icon: Play },
+    { name: 'Juegos', path: '/juegos', icon: Gamepad2 },
+  ];
 
-.font-f1-wide {
-  font-family: var(--font-f1-wide);
-}
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
-.font-f1-bold {
-  font-family: var(--font-f1-bold);
-}
+  return (
+    <nav className="sticky top-0 z-50 bg-f1-red shadow-md">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
+            <div className="px-4 py-1">
+              <img 
+                src="https://pentekarts.web.app/logo_kart_w.png" 
+                alt="Pentekarts Logo" 
+                className="h-8 w-auto"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </Link>
+          
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    isActive ? 'text-white border-b-2 border-white' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  <Icon size={14} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={toggleMenu}
+              className="p-2 text-white hover:text-white transition-colors"
+              aria-label="Toggle Menu"
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+      </div>
 
-.font-f1-black {
-  font-family: var(--font-f1-black);
-}
+      {/* Mobile Dropdown Menu */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-f1-red border-t border-white/10 overflow-hidden"
+          >
+            <div className="px-4 py-4 space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`px-4 py-3 text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 rounded-sm ${
+                      isActive ? 'bg-white text-f1-red' : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+};
 
-.f1-border {
-  @apply border-t-4 border-r-4 border-f1-red rounded-tr-2xl;
-}
-
-.f1-card {
-  @apply bg-white border border-f1-black/10 hover:border-f1-red transition-all duration-300 shadow-sm hover:shadow-md;
-}
-
-.f1-gradient {
-  background: linear-gradient(135deg, #E10600 0%, #900400 100%);
-}
-
-.text-stroke-team {
-  -webkit-text-stroke: 2px var(--team-color);
-}
-
-.text-stroke-white {
-  -webkit-text-stroke: 2px white;
-}
-
+export default Navbar;
