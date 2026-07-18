@@ -1,92 +1,219 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { FileText, Shield, Flag, Award, LucideIcon } from 'lucide-react';
-import { fetchReglamento, Reglamento as ReglamentoType } from '../types';
+import { Link } from 'react-router-dom';
+import { Driver, Team, Season, fetchDrivers, fetchTeams, fetchSeasons } from '../types';
+import { Trophy, ChevronRight } from 'lucide-react';
 
-const iconMap: Record<string, LucideIcon> = {
-  Award,
-  Flag,
-  Shield,
-  FileText
-};
-
-const Reglamento = () => {
-  const [sections, setSections] = useState<ReglamentoType[]>([]);
+const Standings = () => {
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<string>('2026');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchReglamento().then(data => {
-      setSections(data);
-      setLoading(false);
+    fetchSeasons().then(data => {
+      setSeasons(data);
+      if (data.length > 0 && !data.find(s => s.year === selectedSeason)) {
+        setSelectedSeason(data[data.length - 1].year);
+      }
     });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-24 text-center">
-        <p className="text-f1-black/40 font-black uppercase tracking-widest animate-pulse">Cargando reglamento...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetchDrivers(selectedSeason),
+      fetchTeams(selectedSeason)
+    ]).then(([driversData, teamsData]) => {
+      setDrivers(driversData);
+      setTeams(teamsData);
+      setLoading(false);
+    });
+  }, [selectedSeason]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-7xl mx-auto px-4 py-24"
-    >
-      <div className="mb-16">
-        <h1 className="text-5xl italic font-black tracking-tighter mb-6">
-          REGLAMENTO <span className="text-f1-red">OFICIAL</span>
-        </h1>
-        <p className="text-f1-black/60 max-w-3xl text-lg font-medium">
-          Normativa vigente para la temporada de Pentekarts. Todos los pilotos deben conocer y cumplir estas reglas para garantizar una competición justa y emocionante.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        {sections.map((section, idx) => {
-          const Icon = iconMap[section.icon] || FileText;
-          return (
-            <motion.div
-              key={section.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white p-8 border-l-4 border-f1-red shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-f1-red/10 rounded-full flex items-center justify-center text-f1-red">
-                  <Icon size={24} />
-                </div>
-                <h2 className="text-xl font-black italic tracking-tight">{section.title}</h2>
-              </div>
-              <ul className="space-y-3">
-                {section.content.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-f1-black/70 font-medium">
-                    <span className="w-1.5 h-1.5 bg-f1-red rounded-full mt-2 shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <div className="mt-20 p-12 bg-f1-black text-white rounded-sm skew-x-[-2deg]">
-        <div className="skew-x-[2deg]">
-          <h3 className="text-2xl font-black italic mb-4">¿TIENES DUDAS?</h3>
-          <p className="text-white/60 mb-8 max-w-2xl">
-            Si tienes alguna pregunta sobre la interpretación del reglamento o quieres reportar un incidente, contacta con la dirección de carrera a través de los canales oficiales.
+    <div className="max-w-7xl mx-auto px-4 py-16">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+        <div>
+          <h2 className="text-3xl md:text-6xl font-f1-wide italic leading-none mb-4 uppercase">
+            CLASIFICACIÓN <br /><span className="text-f1-red">PILOTOS</span>
+          </h2>
+          <p className="text-f1-black/60 font-medium max-w-md text-sm md:text-base">
+            La lucha por el título mundial de karting está más viva que nunca.
           </p>
-          <button className="bg-f1-red text-white px-8 py-3 text-xs font-black uppercase tracking-widest hover:bg-white hover:text-f1-red transition-all">
-            CONTACTAR COMISARIOS
-          </button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          {seasons.map(season => (
+            <button
+              key={season.id}
+              onClick={() => setSelectedSeason(season.year)}
+              className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-sm transition-all ${
+                selectedSeason === season.year 
+                  ? 'bg-f1-red text-white' 
+                  : 'bg-f1-black/5 text-f1-black/40 hover:bg-f1-black/10'
+              }`}
+            >
+              TEMPORADA {season.year}
+            </button>
+          ))}
         </div>
       </div>
-    </motion.div>
+
+      {loading ? (
+        <div className="py-24 text-center text-f1-black/40 font-bold uppercase tracking-widest">Cargando clasificación...</div>
+      ) : drivers.length === 0 ? (
+        <div className="py-24 text-center text-f1-black/40 font-bold uppercase tracking-widest border border-dashed border-f1-black/10 rounded-sm">
+          No hay datos disponibles para la temporada {selectedSeason}
+        </div>
+      ) : (
+        <div className="space-y-24">
+          {/* Driver Standings */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40">
+                  <th className="py-3 md:py-4 px-3 md:px-6">POS</th>
+                  <th className="py-3 md:py-4 px-3 md:px-6">PILOTO</th>
+                  <th className="py-3 md:py-4 px-3 md:px-6 hidden md:table-cell">EQUIPO</th>
+                  <th className="py-3 md:py-4 px-3 md:px-6 text-right">PUNTOS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.map((driver, index) => {
+                  const team = driver.team;
+                  return (
+                    <motion.tr
+                      key={`${driver.id}-${driver.seasonId}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      viewport={{ once: true }}
+                      className="group hover:bg-f1-black/5 transition-colors border-b border-f1-black/5"
+                    >
+                      <td className="py-4 md:py-6 px-3 md:px-6">
+                        <div className="flex items-center gap-2 md:gap-4">
+                          <span className={`text-xl md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
+                            {index + 1}
+                          </span>
+                          {index === 0 && <Trophy size={14} className="text-yellow-600 md:w-[16px] md:h-[16px]" />}
+                        </div>
+                      </td>
+                      <td className="py-4 md:py-6 px-3 md:px-6">
+                        <div className="flex items-center gap-2 md:gap-4">
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-f1-black/10 bg-f1-black/5 hidden sm:block">
+                            <img src={driver.image || 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                          <div className="flex items-center gap-2 md:gap-3">
+                            <div className="w-1 h-6 md:h-8 rounded-full" style={{ backgroundColor: team?.color }} />
+                            <div className="flex flex-col">
+                              <Link 
+                                to={`/piloto/${driver.id}`}
+                                className="text-base md:text-lg font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black leading-tight"
+                              >
+                                {driver.name}
+                              </Link>
+                              <span className="text-[9px] font-bold text-f1-black/40 md:hidden uppercase tracking-tighter">
+                                {team?.name || '--'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 md:py-6 px-3 md:px-6 hidden md:table-cell">
+                        {team ? (
+                          <Link to={`/equipo/${team.id}`} className="text-xs font-bold tracking-widest text-f1-black/60 hover:text-f1-red transition-colors">
+                            {team.name}
+                          </Link>
+                        ) : (
+                          <span className="text-xs font-bold uppercase tracking-widest text-f1-black/60">--</span>
+                        )}
+                      </td>
+                      <td className="py-4 md:py-6 px-3 md:px-6 text-right">
+                        <span className="text-xl md:text-2xl font-f1-bold font-black italic text-f1-black">{driver.points}</span>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Team Standings */}
+          <div>
+            <div className="mb-12">
+              <h2 className="text-3xl md:text-6xl font-f1-wide italic leading-none mb-4 uppercase text-f1-black">
+                CLASIFICACIÓN <br /><span className="text-f1-red">EQUIPOS</span>
+              </h2>
+              <p className="text-f1-black/60 font-medium max-w-md text-sm md:text-base">
+                El campeonato de constructores premia la consistencia y el trabajo en equipo.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40">
+                    <th className="py-3 md:py-4 px-3 md:px-6">POS</th>
+                    <th className="py-3 md:py-4 px-3 md:px-6">EQUIPO</th>
+                    <th className="py-3 md:py-4 px-3 md:px-6 text-right">PUNTOS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((team, index) => (
+                    <motion.tr
+                      key={`${team.id}-${team.seasonId}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      viewport={{ once: true }}
+                      className="group hover:bg-f1-black/5 transition-colors border-b border-f1-black/5"
+                    >
+                      <td className="py-4 md:py-6 px-3 md:px-6">
+                        <div className="flex items-center gap-2 md:gap-4">
+                          <span className={`text-xl md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
+                            {index + 1}
+                          </span>
+                          {index === 0 && <Trophy size={14} className="text-yellow-600 md:w-[16px] md:h-[16px]" />}
+                        </div>
+                      </td>
+                      <td className="py-4 md:py-6 px-3 md:px-6">
+                        <div className="flex items-center gap-2 md:gap-4">
+                          <div className="w-8 h-8 md:w-12 md:h-12 bg-white rounded-sm border border-f1-black/5 p-1 md:p-2 flex items-center justify-center hidden sm:flex">
+                            <img src={team.logo || 'https://via.placeholder.com/150'} alt="" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                          </div>
+                          <div className="flex items-center gap-2 md:gap-3">
+                            <div className="w-1 h-6 md:h-8 rounded-full" style={{ backgroundColor: team.color }} />
+                            <Link 
+                              to={`/equipo/${team.id}`}
+                              className="text-base md:text-lg font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black"
+                            >
+                              {team.name}
+                            </Link>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 md:py-6 px-3 md:px-6 text-right">
+                        <span className="text-xl md:text-2xl font-f1-bold font-black italic text-f1-black">{team.points}</span>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-12 flex justify-center">
+        <button className="bg-f1-red text-white px-10 py-4 font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-red-700 transition-all">
+          VER CLASIFICACIÓN COMPLETA
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    </div>
   );
 };
 
-export default Reglamento;
+export default Standings;
