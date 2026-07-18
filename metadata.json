@@ -1,2 +1,5 @@
-
-console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
+{
+  "name": "Pentekarts F1 Edition",
+  "description": "Una web de karting inspirada en la Fórmula 1 con datos de Pentekarts.",
+  "requestFramePermissions": []
+}
