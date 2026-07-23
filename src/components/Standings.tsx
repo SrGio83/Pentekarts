@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Driver, Team, Season, fetchDrivers, fetchTeams, fetchSeasons } from '../types';
-import { Trophy, ChevronRight } from 'lucide-react';
+import { Driver, Team, Season, Race, fetchDrivers, fetchTeams, fetchSeasons, fetchRaces } from '../types';
+import { Trophy, ChevronRight, Info } from 'lucide-react';
 
 const Standings = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string>('2026');
   const [loading, setLoading] = useState(true);
 
@@ -24,10 +25,12 @@ const Standings = () => {
     setLoading(true);
     Promise.all([
       fetchDrivers(selectedSeason),
-      fetchTeams(selectedSeason)
-    ]).then(([driversData, teamsData]) => {
+      fetchTeams(selectedSeason),
+      fetchRaces(selectedSeason)
+    ]).then(([driversData, teamsData, racesData]) => {
       setDrivers(driversData);
       setTeams(teamsData);
+      setRaces(racesData);
       setLoading(false);
     });
   }, [selectedSeason]);
@@ -70,94 +73,145 @@ const Standings = () => {
       ) : (
         <div className="space-y-24">
           {/* Driver Standings */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40">
-                  <th className="py-3 md:py-4 px-3 md:px-6">POS</th>
-                  <th className="py-3 md:py-4 px-3 md:px-6">PILOTO</th>
-                  <th className="py-3 md:py-4 px-3 md:px-6 hidden md:table-cell">EQUIPO</th>
-                  <th className="py-3 md:py-4 px-3 md:px-6 text-right">PUNTOS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {drivers.map((driver, index) => {
-                  const team = driver.team;
-                  return (
-                    <motion.tr
-                      key={`${driver.id}-${driver.seasonId}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      viewport={{ once: true }}
-                      className="group hover:bg-f1-black/5 transition-colors border-b border-f1-black/5"
-                    >
-                      <td className="py-4 md:py-6 px-3 md:px-6">
-                        <div className="flex items-center gap-2 md:gap-4">
-                          <span className={`text-xl md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
-                            {index + 1}
-                          </span>
-                          {index === 0 && <Trophy size={14} className="text-yellow-600 md:w-[16px] md:h-[16px]" />}
+          <div>
+            {races.length > 0 && (
+              <div className="mb-3 text-[11px] font-semibold text-f1-black/50 flex items-center gap-2">
+                <Info size={14} className="text-f1-red shrink-0" />
+                <span className="hidden md:inline">Desplaza la tabla horizontalmente para ver los puntos obtenidos en cada carrera (C1, C2, ...).</span>
+                <span className="md:hidden">Amplía la pantalla para ver el desglose de puntos por carrera.</span>
+              </div>
+            )}
+            <div className="overflow-x-auto shadow-sm border border-f1-black/5 rounded-sm">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40 bg-f1-black/5">
+                    <th className="py-3 md:py-4 px-3 md:px-4">POS</th>
+                    <th className="py-3 md:py-4 px-3 md:px-4">PILOTO</th>
+                    <th className="py-3 md:py-4 px-3 md:px-4 hidden sm:table-cell">EQUIPO</th>
+                    {races.map((race, index) => (
+                      <th 
+                        key={race.id} 
+                        className="py-3 md:py-4 px-2 text-center border-l border-f1-black/5 min-w-[50px] hidden md:table-cell"
+                        title={`${race.name}${race.location ? ` - ${race.location}` : ''}`}
+                      >
+                        <div className="text-[10px] font-f1-bold font-black text-f1-red">C{index + 1}</div>
+                        <div className="text-[7px] font-normal text-f1-black/40 truncate max-w-[65px] mx-auto hidden lg:block">
+                          {race.name.replace(/^(GP|Carrera)\s+/i, '')}
                         </div>
-                      </td>
-                      <td className="py-4 md:py-6 px-3 md:px-6">
-                        <div className="flex items-center gap-2 md:gap-4">
-                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-f1-black/10 bg-f1-black/5 hidden sm:block">
-                            <img src={driver.image || 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
+                      </th>
+                    ))}
+                    <th className="py-3 md:py-4 px-3 md:px-6 text-right border-l border-f1-black/5">PUNTOS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drivers.map((driver, index) => {
+                    const team = driver.team;
+                    return (
+                      <motion.tr
+                        key={`${driver.id}-${driver.seasonId}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        viewport={{ once: true }}
+                        className="group hover:bg-f1-black/5 transition-colors border-b border-f1-black/5"
+                      >
+                        <td className="py-4 md:py-5 px-3 md:px-4">
                           <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-1 h-6 md:h-8 rounded-full" style={{ backgroundColor: team?.color }} />
-                            <div className="flex flex-col">
-                              <Link 
-                                to={`/piloto/${driver.id}`}
-                                className="text-base md:text-lg font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black leading-tight"
-                              >
-                                {driver.name}
-                              </Link>
-                              <span className="text-[9px] font-bold text-f1-black/40 md:hidden uppercase tracking-tighter">
-                                {team?.name || '--'}
-                              </span>
+                            <span className={`text-lg md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
+                              {index + 1}
+                            </span>
+                            {index === 0 && <Trophy size={14} className="text-yellow-600 md:w-[16px] md:h-[16px]" />}
+                          </div>
+                        </td>
+                        <td className="py-4 md:py-5 px-3 md:px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2 md:gap-3">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-f1-black/10 bg-f1-black/5 hidden sm:block shrink-0">
+                              <img src={driver.image || 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-1 h-6 md:h-8 rounded-full shrink-0" style={{ backgroundColor: team?.color }} />
+                              <div className="flex flex-col">
+                                <Link 
+                                  to={`/piloto/${driver.id}`}
+                                  className="text-sm md:text-base font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black leading-tight"
+                                >
+                                  {driver.name}
+                                </Link>
+                                <span className="text-[9px] font-bold text-f1-black/40 sm:hidden uppercase tracking-tighter">
+                                  {team?.name || '--'}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 md:py-6 px-3 md:px-6 hidden md:table-cell">
-                        {team ? (
-                          <Link to={`/equipo/${team.id}`} className="text-xs font-bold tracking-widest text-f1-black/60 hover:text-f1-red transition-colors">
-                            {team.name}
-                          </Link>
-                        ) : (
-                          <span className="text-xs font-bold uppercase tracking-widest text-f1-black/60">--</span>
-                        )}
-                      </td>
-                      <td className="py-4 md:py-6 px-3 md:px-6 text-right">
-                        <span className="text-xl md:text-2xl font-f1-bold font-black italic text-f1-black">{driver.points}</span>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="py-4 md:py-5 px-3 md:px-4 hidden sm:table-cell whitespace-nowrap">
+                          {team ? (
+                            <Link to={`/equipo/${team.id}`} className="text-xs font-bold tracking-widest text-f1-black/60 hover:text-f1-red transition-colors">
+                              {team.name}
+                            </Link>
+                          ) : (
+                            <span className="text-xs font-bold uppercase tracking-widest text-f1-black/60">--</span>
+                          )}
+                        </td>
+                        {races.map((race) => {
+                          const pts = driver.racePoints?.[race.id];
+                          return (
+                            <td key={race.id} className="py-4 md:py-5 px-2 text-center border-l border-f1-black/5 whitespace-nowrap hidden md:table-cell">
+                              {pts !== undefined ? (
+                                <span className={`text-xs md:text-sm font-f1-bold font-bold ${pts > 0 ? 'text-f1-black' : 'text-f1-black/30'}`}>
+                                  {pts}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-f1-black/20">-</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td className="py-4 md:py-5 px-3 md:px-6 text-right border-l border-f1-black/5 whitespace-nowrap">
+                          <span className="text-xl md:text-2xl font-f1-bold font-black italic text-f1-black">{driver.points}</span>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Team Standings */}
           <div>
-            <div className="mb-12">
-              <h2 className="text-3xl md:text-6xl font-f1-wide italic leading-none mb-4 uppercase text-f1-black">
+            <div className="mb-6">
+              <h2 className="text-3xl md:text-6xl font-f1-wide italic leading-none mb-3 uppercase text-f1-black">
                 CLASIFICACIÓN <br /><span className="text-f1-red">EQUIPOS</span>
               </h2>
-              <p className="text-f1-black/60 font-medium max-w-md text-sm md:text-base">
+              <p className="text-f1-black/60 font-medium max-w-md text-sm md:text-base mb-2">
                 El campeonato de constructores premia la consistencia y el trabajo en equipo.
               </p>
+              <div className="inline-flex items-center gap-2 text-xs bg-f1-black/5 border border-f1-black/10 rounded px-3 py-1.5 text-f1-black/70 font-semibold">
+                <Info size={14} className="text-f1-red shrink-0" />
+                <span>Solo puntúan para el equipo los 2 mejores pilotos de cada escudería en cada carrera.</span>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto shadow-sm border border-f1-black/5 rounded-sm">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40">
-                    <th className="py-3 md:py-4 px-3 md:px-6">POS</th>
-                    <th className="py-3 md:py-4 px-3 md:px-6">EQUIPO</th>
-                    <th className="py-3 md:py-4 px-3 md:px-6 text-right">PUNTOS</th>
+                  <tr className="border-b border-f1-black/10 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-f1-black/40 bg-f1-black/5">
+                    <th className="py-3 md:py-4 px-3 md:px-4">POS</th>
+                    <th className="py-3 md:py-4 px-3 md:px-4">EQUIPO</th>
+                    {races.map((race, index) => (
+                      <th 
+                        key={race.id} 
+                        className="py-3 md:py-4 px-2 text-center border-l border-f1-black/5 min-w-[50px] hidden md:table-cell"
+                        title={`${race.name}${race.location ? ` - ${race.location}` : ''}`}
+                      >
+                        <div className="text-[10px] font-f1-bold font-black text-f1-red">C{index + 1}</div>
+                        <div className="text-[7px] font-normal text-f1-black/40 truncate max-w-[65px] mx-auto hidden lg:block">
+                          {race.name.replace(/^(GP|Carrera)\s+/i, '')}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="py-3 md:py-4 px-3 md:px-6 text-right border-l border-f1-black/5">PUNTOS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,31 +224,45 @@ const Standings = () => {
                       viewport={{ once: true }}
                       className="group hover:bg-f1-black/5 transition-colors border-b border-f1-black/5"
                     >
-                      <td className="py-4 md:py-6 px-3 md:px-6">
-                        <div className="flex items-center gap-2 md:gap-4">
-                          <span className={`text-xl md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
+                      <td className="py-4 md:py-5 px-3 md:px-4">
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <span className={`text-lg md:text-2xl font-f1-bold font-black italic ${index < 3 ? 'text-f1-red' : 'text-f1-black/30'}`}>
                             {index + 1}
                           </span>
                           {index === 0 && <Trophy size={14} className="text-yellow-600 md:w-[16px] md:h-[16px]" />}
                         </div>
                       </td>
-                      <td className="py-4 md:py-6 px-3 md:px-6">
-                        <div className="flex items-center gap-2 md:gap-4">
-                          <div className="w-8 h-8 md:w-12 md:h-12 bg-white rounded-sm border border-f1-black/5 p-1 md:p-2 flex items-center justify-center hidden sm:flex">
+                      <td className="py-4 md:py-5 px-3 md:px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-sm border border-f1-black/5 p-1 flex items-center justify-center hidden sm:flex shrink-0">
                             <img src={team.logo || 'https://via.placeholder.com/150'} alt="" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                           </div>
-                          <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-1 h-6 md:h-8 rounded-full" style={{ backgroundColor: team.color }} />
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-6 md:h-8 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
                             <Link 
                               to={`/equipo/${team.id}`}
-                              className="text-base md:text-lg font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black"
+                              className="text-sm md:text-base font-f1-bold font-bold italic tracking-tight hover:text-f1-red transition-colors text-f1-black"
                             >
                               {team.name}
                             </Link>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 md:py-6 px-3 md:px-6 text-right">
+                      {races.map((race) => {
+                        const pts = team.racePoints?.[race.id];
+                        return (
+                          <td key={race.id} className="py-4 md:py-5 px-2 text-center border-l border-f1-black/5 whitespace-nowrap hidden md:table-cell">
+                            {pts !== undefined ? (
+                              <span className={`text-xs md:text-sm font-f1-bold font-bold ${pts > 0 ? 'text-f1-black' : 'text-f1-black/30'}`}>
+                                {pts}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-f1-black/20">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="py-4 md:py-5 px-3 md:px-6 text-right border-l border-f1-black/5 whitespace-nowrap">
                         <span className="text-xl md:text-2xl font-f1-bold font-black italic text-f1-black">{team.points}</span>
                       </td>
                     </motion.tr>
