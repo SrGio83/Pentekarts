@@ -15,6 +15,7 @@ export interface Driver {
   image?: string;
   seasonId?: number;
   seasonYear?: string;
+  racePoints?: Record<number, number>;
   team?: {
     id: number;
     name: string;
@@ -32,6 +33,7 @@ export interface Team {
   logo?: string;
   seasonId?: number;
   seasonYear?: string;
+  racePoints?: Record<number, number>;
 }
 
 export interface Race {
@@ -265,29 +267,62 @@ export const fetchTeams = async (seasonYear?: string): Promise<Team[]> => {
     if (raceIds.length > 0) {
       const { data: resultsData } = await supabase
         .from('race_results')
-        .select('driver_id, points_earned')
+        .select('driver_id, points_earned, race_id')
         .in('race_id', raceIds);
       raceResults = resultsData || [];
     }
   } else {
     const { data: resultsData } = await supabase
       .from('race_results')
-      .select('driver_id, points_earned');
+      .select('driver_id, points_earned, race_id');
     raceResults = resultsData || [];
   }
 
-  // 5. Aggregate points per team
-  const teamPointsMap: Record<number, number> = {};
+  // 5. Aggregate points per race per team: only the top 2 scoring drivers per team in each race count
+  const raceDriverPoints: Record<number, Record<number, number>> = {};
   raceResults.forEach((r: any) => {
+    const rId = Number(r.race_id);
     const dId = Number(r.driver_id);
-    const teamId = driverToTeamMap[dId];
-    if (teamId) {
-      const pts = Number(r.points_earned || 0);
-      teamPointsMap[teamId] = (teamPointsMap[teamId] || 0) + pts;
-    }
+    const pts = Number(r.points_earned || 0);
+    if (!raceDriverPoints[rId]) raceDriverPoints[rId] = {};
+    raceDriverPoints[rId][dId] = (raceDriverPoints[rId][dId] || 0) + pts;
   });
 
-  // 6. Map and return teams with dynamic points
+  const raceTeamDriverPoints: Record<number, Record<number, number[]>> = {};
+  Object.entries(raceDriverPoints).forEach(([rIdStr, driverMap]) => {
+    const rId = Number(rIdStr);
+    raceTeamDriverPoints[rId] = {};
+    Object.entries(driverMap).forEach(([dIdStr, pts]) => {
+      const dId = Number(dIdStr);
+      const teamId = driverToTeamMap[dId];
+      if (teamId) {
+        if (!raceTeamDriverPoints[rId][teamId]) {
+          raceTeamDriverPoints[rId][teamId] = [];
+        }
+        raceTeamDriverPoints[rId][teamId].push(pts);
+      }
+    });
+  });
+
+  const teamRacePointsMap: Record<number, Record<number, number>> = {};
+  const teamPointsMap: Record<number, number> = {};
+
+  Object.entries(raceTeamDriverPoints).forEach(([rIdStr, teamsMap]) => {
+    const rId = Number(rIdStr);
+    Object.entries(teamsMap).forEach(([tIdStr, driverPtsArr]) => {
+      const tId = Number(tIdStr);
+      // Sort driver points descending and sum the top 2
+      driverPtsArr.sort((a, b) => b - a);
+      const top2Sum = driverPtsArr.slice(0, 2).reduce((sum, p) => sum + p, 0);
+
+      if (!teamRacePointsMap[tId]) teamRacePointsMap[tId] = {};
+      teamRacePointsMap[tId][rId] = top2Sum;
+
+      teamPointsMap[tId] = (teamPointsMap[tId] || 0) + top2Sum;
+    });
+  });
+
+  // 6. Map and return teams with dynamic points and race breakdown
   const teams = (seasonTeamsData || []).map((st: any) => {
     const tId = Number(st.team_id || 0);
     const calculatedPoints = teamPointsMap[tId] || 0;
@@ -299,7 +334,8 @@ export const fetchTeams = async (seasonYear?: string): Promise<Team[]> => {
       color: st.teams?.color_hex || st.color_hex || '#FF1801',
       logo: st.logo_url || st.teams?.logo_url,
       seasonId: st.season_id || 0,
-      seasonYear: st.seasons?.year
+      seasonYear: st.seasons?.year,
+      racePoints: teamRacePointsMap[tId] || {}
     };
   });
 
@@ -359,26 +395,33 @@ export const fetchDrivers = async (seasonYear?: string): Promise<Driver[]> => {
     if (raceIds.length > 0) {
       const { data: resultsData } = await supabase
         .from('race_results')
-        .select('driver_id, points_earned')
+        .select('driver_id, points_earned, race_id')
         .in('race_id', raceIds);
       raceResults = resultsData || [];
     }
   } else {
     const { data: resultsData } = await supabase
       .from('race_results')
-      .select('driver_id, points_earned');
+      .select('driver_id, points_earned, race_id');
     raceResults = resultsData || [];
   }
 
-  // 4. Aggregate points per driver
+  // 4. Aggregate points per driver overall and per race_id
   const driverPointsMap: Record<number, number> = {};
+  const driverRacePointsMap: Record<number, Record<number, number>> = {};
+
   raceResults.forEach((r: any) => {
     const dId = Number(r.driver_id);
+    const rId = Number(r.race_id);
     const pts = Number(r.points_earned || 0);
+
     driverPointsMap[dId] = (driverPointsMap[dId] || 0) + pts;
+
+    if (!driverRacePointsMap[dId]) driverRacePointsMap[dId] = {};
+    driverRacePointsMap[dId][rId] = (driverRacePointsMap[dId][rId] || 0) + pts;
   });
   
-  // 5. Map and return drivers with dynamic points
+  // 5. Map and return drivers with dynamic points and race breakdown
   const mappedDrivers = (data || []).map((sd: any) => {
     const dId = Number(sd.driver_id || 0);
     const calculatedPoints = driverPointsMap[dId] || 0;
@@ -391,6 +434,7 @@ export const fetchDrivers = async (seasonYear?: string): Promise<Driver[]> => {
       image: sd.drivers?.image_url || sd.image_url,
       seasonId: sd.season_id || 0,
       seasonYear: sd.seasons?.year,
+      racePoints: driverRacePointsMap[dId] || {},
       team: sd.teams ? {
         id: Number(sd.team_id),
         name: sd.teams.name,
