@@ -152,6 +152,23 @@ const RaceDetail = () => {
     loadAllLaps();
   }, [activeSessionId]);
 
+  const getVideoUrl = (video: Video) => {
+    if (!video) return '#';
+    if (video.youtube_id) {
+      if (video.youtube_id.startsWith('http://') || video.youtube_id.startsWith('https://')) {
+        return video.youtube_id;
+      }
+      return `https://www.youtube.com/watch?v=${video.youtube_id}`;
+    }
+    if (video.url) {
+      if (video.url.startsWith('http://') || video.url.startsWith('https://')) {
+        return video.url;
+      }
+      return `https://www.youtube.com/watch?v=${video.url}`;
+    }
+    return '#';
+  };
+
   const canShowLapChart = allSessionLaps.length > 0 && allSessionLaps.every(lap => lap.lap_position !== null);
 
   const prepareLapChartData = () => {
@@ -465,7 +482,7 @@ const RaceDetail = () => {
               {sessionVideos[activeSessionId]?.map(video => (
                 <a
                   key={video.id}
-                  href={video.url}
+                  href={getVideoUrl(video)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 bg-f1-black text-white px-4 py-2 rounded-sm font-black uppercase tracking-widest text-[10px] hover:bg-f1-red transition-colors"
