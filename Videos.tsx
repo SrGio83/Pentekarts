@@ -20,9 +20,10 @@ const Videos = () => {
     });
   }, []);
 
-  const filteredVideos = selectedSeason === 'all' 
+  const filteredVideos = (selectedSeason === 'all' 
     ? videos 
-    : videos.filter(v => v.season_id === selectedSeason);
+    : videos.filter(v => v.season_id === selectedSeason)
+  ).sort((a, b) => b.id - a.id);
 
   const getVideoUrl = (video: Video) => {
     if (!video.youtube_id) return video.url;
