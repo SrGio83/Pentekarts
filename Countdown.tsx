@@ -3,9 +3,10 @@ import { motion } from 'motion/react';
 
 interface CountdownProps {
   targetDate: string;
+  onExpire?: () => void;
 }
 
-const Countdown: React.FC<CountdownProps> = ({ targetDate }) => {
+const Countdown: React.FC<CountdownProps> = ({ targetDate, onExpire }) => {
   const [timeLeft, setTimeLeft] = useState<{
     days: number;
     hours: number;
@@ -16,28 +17,29 @@ const Countdown: React.FC<CountdownProps> = ({ targetDate }) => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const difference = +new Date(targetDate) - +new Date();
-      let timeLeft = null;
-
-      if (difference > 0) {
-        timeLeft = {
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60),
-        };
+      if (difference <= 0) {
+        if (onExpire) onExpire();
+        return null;
       }
 
-      return timeLeft;
+      return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+      };
     };
 
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
+    const updateTimer = () => {
+      const tl = calculateTimeLeft();
+      setTimeLeft(tl);
+    };
 
-    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(updateTimer, 1000);
+    updateTimer();
 
     return () => clearInterval(timer);
-  }, [targetDate]);
+  }, [targetDate, onExpire]);
 
   if (!timeLeft) return null;
 
