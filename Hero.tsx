@@ -10,6 +10,7 @@ const Hero = () => {
   const [constructorsLeader, setConstructorsLeader] = useState<Team | null>(null);
   const [nextRace, setNextRace] = useState<Race | null>(null);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [countdownExpired, setCountdownExpired] = useState(false);
   const currentSeason = '2026';
 
   useEffect(() => {
@@ -24,6 +25,9 @@ const Hero = () => {
     });
     fetchSiteSettings().then(setSettings);
   }, []);
+
+  const isFutureRace = nextRace?.rawDate ? new Date(nextRace.rawDate).getTime() > Date.now() : false;
+  const showCountdown = isFutureRace && !countdownExpired;
 
   return (
     <div className="relative h-[80vh] w-full overflow-hidden bg-white transition-colors duration-300">
@@ -60,14 +64,14 @@ const Hero = () => {
           </p>
 
           <div className="flex flex-col lg:flex-row lg:items-center gap-8 mb-12">
-            {nextRace?.rawDate && (
+            {showCountdown && nextRace?.rawDate && (
               <div className="bg-f1-black/90 backdrop-blur-md p-8 rounded-sm inline-block border-l-8 border-f1-red shadow-2xl skew-x-[-4deg]">
                 <div className="skew-x-[4deg]">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4 flex items-center gap-2">
                     <span className="w-2 h-2 bg-f1-red animate-pulse rounded-full" />
                     PRÓXIMA CARRERA: {nextRace.name.toUpperCase()}
                   </p>
-                  <Countdown targetDate={nextRace.rawDate} />
+                  <Countdown targetDate={nextRace.rawDate} onExpire={() => setCountdownExpired(true)} />
                 </div>
               </div>
             )}
@@ -79,12 +83,12 @@ const Hero = () => {
                   <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </span>
               </Link>
-              <button className="bg-f1-black/10 hover:bg-f1-black/20 backdrop-blur-md text-f1-black px-8 py-4 font-bold uppercase tracking-widest flex items-center gap-2 transition-all skew-x-[-4deg]">
+              <Link to="/videos" className="bg-f1-black/10 hover:bg-f1-black/20 backdrop-blur-md text-f1-black px-8 py-4 font-bold uppercase tracking-widest flex items-center gap-2 transition-all skew-x-[-4deg]">
                 <span className="skew-x-[4deg] flex items-center gap-2">
                   <Play size={18} fill="currentColor" />
                   ÚLTIMOS VIDEOS
                 </span>
-              </button>
+              </Link>
             </div>
           </div>
         </motion.div>
