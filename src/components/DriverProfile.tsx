@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Driver, fetchDriverById, fetchDriverHistory, fetchDrivers, fetchDriverStats } from '../types';
 import { supabase } from '../supabaseClient';
-import { Trophy, Award, MapPin, ChevronLeft, Calendar, Users, GitCompare, X, Search, Hash, Timer, FileText, LineChart as ChartIcon } from 'lucide-react';
+import { Trophy, Award, MapPin, ChevronLeft, Calendar, Users, GitCompare, X, Search, Hash, Timer, FileText, LineChart as ChartIcon, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot } from 'recharts';
 
 const DriverProfile = () => {
@@ -19,7 +19,8 @@ const DriverProfile = () => {
     podiums: 0,
     poles: 0,
     fastestLaps: 0,
-    bestPosition: 0
+    bestPosition: 0,
+    averagePosition: '--'
   });
   
   // Comparison state
@@ -269,6 +270,15 @@ const DriverProfile = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-60">PODIOS</span>
                     <span className="text-4xl font-f1-bold italic">{compareRaceResults.filter(r => r.position <= 3).length}</span>
                   </div>
+                  <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                    <span className="text-4xl font-f1-bold italic">
+                      {raceResults.length > 0 ? (raceResults.reduce((s, r) => s + (r.position || 0), 0) / raceResults.length).toFixed(2) : '--'}
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">POS. MEDIA</span>
+                    <span className="text-4xl font-f1-bold italic">
+                      {compareRaceResults.length > 0 ? (compareRaceResults.reduce((s, r) => s + (r.position || 0), 0) / compareRaceResults.length).toFixed(2) : '--'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="text-center">
@@ -362,6 +372,13 @@ const DriverProfile = () => {
                   <span className="block text-[10px] font-black opacity-40 uppercase">MEJOR POS.</span>
                   <span className="text-2xl font-f1-bold italic">
                     {driverStats.bestPosition ? `#${driverStats.bestPosition}` : '--'}
+                  </span>
+                </div>
+                <div className="bg-f1-black/5 p-4 rounded-sm text-center">
+                  <TrendingUp size={24} className="mx-auto mb-2 text-f1-red" />
+                  <span className="block text-[10px] font-black opacity-40 uppercase">POSICIÓN MEDIA</span>
+                  <span className="text-2xl font-f1-bold italic">
+                    {driverStats.averagePosition !== undefined && driverStats.averagePosition !== '--' ? driverStats.averagePosition : '--'}
                   </span>
                 </div>
               </div>
