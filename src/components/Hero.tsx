@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchDrivers, fetchTeams, fetchLatestRace, fetchSiteSettings, Driver, Team, Race, SiteSettings } from '../types';
+import { fetchDrivers, fetchTeams, fetchLatestRace, fetchSiteSettings, getMadridTimestamp, Driver, Team, Race, SiteSettings } from '../types';
 import Countdown from './Countdown';
 
 const Hero = () => {
@@ -27,7 +27,7 @@ const Hero = () => {
   }, []);
 
   const raceDate = nextRace?.race_date || nextRace?.rawDate;
-  const isFutureRace = raceDate ? new Date(raceDate).getTime() > Date.now() : false;
+  const isFutureRace = raceDate ? getMadridTimestamp(raceDate) > Date.now() : false;
   const showCountdown = isFutureRace && !countdownExpired;
 
   return (
