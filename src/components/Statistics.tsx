@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Timer, Award, Flag, MapPin, ChevronRight, Hash } from 'lucide-react';
+import { Trophy, Timer, Award, Flag, MapPin, ChevronRight, Hash, Medal, Percent } from 'lucide-react';
 import { fetchGlobalStatistics } from '../types';
 
 interface StatEntry {
   id: number;
   name: string;
-  value: number;
+  value: number | string;
   subtext?: string;
 }
 
@@ -19,6 +19,9 @@ const Statistics = () => {
     winsByCircuit: StatEntry[];
     polePositions: StatEntry[];
     totalWins: StatEntry[];
+    winsPerRace: StatEntry[];
+    podiums: StatEntry[];
+    podiumsPerRace: StatEntry[];
     carreraPositions: StatEntry[];
     clasificacionPositions: StatEntry[];
     overtakes: StatEntry[];
@@ -29,6 +32,9 @@ const Statistics = () => {
     winsByCircuit: [],
     polePositions: [],
     totalWins: [],
+    winsPerRace: [],
+    podiums: [],
+    podiumsPerRace: [],
     carreraPositions: [],
     clasificacionPositions: [],
     overtakes: []
@@ -56,6 +62,7 @@ const Statistics = () => {
       const winsByCircuitMap = new Map();
       const polePositionsMap = new Map();
       const totalWinsMap = new Map();
+      const podiumsMap = new Map();
       const carreraPositionsMap = new Map();
       const clasificacionPositionsMap = new Map();
       const overtakesMap = new Map();
@@ -84,7 +91,7 @@ const Statistics = () => {
           });
         }
 
-        // Overtakes
+        // Posiciones ganadas
         if (sessionType === 'Carrera' && res.grid_position && res.position) {
           const diff = res.grid_position - res.position;
           if (diff > 0) {
@@ -104,6 +111,11 @@ const Statistics = () => {
         if (sessionType === 'Carrera') {
           racesDisputedMap.set(res.driver_id, { name, count: (racesDisputedMap.get(res.driver_id)?.count || 0) + 1 });
           
+          // Podiums (posición 1, 2 o 3 en una sesión de tipo "Carrera")
+          if (res.position >= 1 && res.position <= 3) {
+            podiumsMap.set(res.driver_id, { name, count: (podiumsMap.get(res.driver_id)?.count || 0) + 1 });
+          }
+
           // Wins
           if (res.position === 1) {
             totalWinsMap.set(res.driver_id, { name, count: (totalWinsMap.get(res.driver_id)?.count || 0) + 1 });
@@ -152,6 +164,52 @@ const Statistics = () => {
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
 
+      // Victorias por carrera (Win rate)
+      const winsPerRace = Array.from(racesDisputedMap.entries())
+        .map(([driverId, raceData]) => {
+          const wins = totalWinsMap.get(driverId)?.count || 0;
+          const races = raceData.count;
+          const ratio = races > 0 ? (wins / races) * 100 : 0;
+          return {
+            id: driverId,
+            name: raceData.name,
+            wins,
+            races,
+            ratio,
+            value: ratio.toFixed(1),
+            subtext: `${wins} ${wins === 1 ? 'victoria' : 'victorias'} en ${races} carreras`
+          };
+        })
+        .filter(d => d.wins > 0)
+        .sort((a, b) => b.ratio - a.ratio || b.wins - a.wins || b.races - a.races)
+        .slice(0, 10);
+
+      // Podios (posición 1, 2 o 3 en una sesión de tipo "Carrera")
+      const podiums = Array.from(podiumsMap.entries())
+        .map(([id, data]) => ({ id, name: data.name, value: data.count }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+      // Podios por carrera (Podium rate)
+      const podiumsPerRace = Array.from(racesDisputedMap.entries())
+        .map(([driverId, raceData]) => {
+          const podCount = podiumsMap.get(driverId)?.count || 0;
+          const races = raceData.count;
+          const ratio = races > 0 ? (podCount / races) * 100 : 0;
+          return {
+            id: driverId,
+            name: raceData.name,
+            podiums: podCount,
+            races,
+            ratio,
+            value: ratio.toFixed(1),
+            subtext: `${podCount} ${podCount === 1 ? 'podio' : 'podios'} en ${races} carreras`
+          };
+        })
+        .filter(d => d.podiums > 0)
+        .sort((a, b) => b.ratio - a.ratio || b.podiums - a.podiums || b.races - a.races)
+        .slice(0, 10);
+
       const carreraPositions = Array.from(carreraPositionsMap.values())
         .map((data) => ({ 
           id: 0, 
@@ -184,8 +242,11 @@ const Statistics = () => {
         winsByCircuit, 
         polePositions, 
         totalWins, 
+        winsPerRace,
+        podiums,
+        podiumsPerRace,
         carreraPositions, 
-        clasificacionPositions,
+        clasificacionPositions, 
         overtakes
       });
       setLoading(false);
@@ -255,7 +316,7 @@ const Statistics = () => {
           </h1>
           <p className="text-f1-black/60 font-bold uppercase tracking-widest max-w-2xl">
             Consulta los récords históricos y las estadísticas más destacadas de nuestro campeonato. 
-            Desde vueltas lideradas hasta victorias en circuitos específicos.
+            Desde victorias y podios por carrera hasta vueltas lideradas y posiciones ganadas.
           </p>
         </div>
 
@@ -265,6 +326,24 @@ const Statistics = () => {
             icon={Trophy} 
             data={stats.totalWins} 
             unit="WINS" 
+          />
+          <StatCard 
+            title="Victorias por Carrera" 
+            icon={Trophy} 
+            data={stats.winsPerRace} 
+            unit="%" 
+          />
+          <StatCard 
+            title="Podios" 
+            icon={Medal} 
+            data={stats.podiums} 
+            unit="PODIOS" 
+          />
+          <StatCard 
+            title="Podios por Carrera" 
+            icon={Percent} 
+            data={stats.podiumsPerRace} 
+            unit="%" 
           />
           <StatCard 
             title="Pole Positions" 
@@ -291,6 +370,12 @@ const Statistics = () => {
             unit="CARRERAS" 
           />
           <StatCard 
+            title="Posiciones ganadas" 
+            icon={ChevronRight} 
+            data={stats.overtakes} 
+            unit="POSICIONES" 
+          />
+          <StatCard 
             title="Victorias por Circuito" 
             icon={MapPin} 
             data={stats.winsByCircuit} 
@@ -307,12 +392,6 @@ const Statistics = () => {
             icon={Award} 
             data={stats.clasificacionPositions} 
             unit="VECES" 
-          />
-          <StatCard 
-            title="Adelantamientos" 
-            icon={ChevronRight} 
-            data={stats.overtakes} 
-            unit="POSICIONES" 
           />
         </div>
       </div>
