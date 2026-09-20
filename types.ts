@@ -49,6 +49,7 @@ export interface Race {
   seasonId?: number;
   seasonYear?: string;
   rawDate?: string;
+  race_date?: string;
   circuit_id?: number;
   circuit_details?: {
     length_m?: number;
@@ -466,6 +467,8 @@ export const fetchRaces = async (seasonYear?: string): Promise<Race[]> => {
       location,
       description,
       official_web,
+      race_date,
+      status,
       circuits (
         id,
         map_image_url
@@ -487,20 +490,26 @@ export const fetchRaces = async (seasonYear?: string): Promise<Race[]> => {
     return [];
   }
   
-  return (data || []).map((sr: any) => ({
-    id: Number(sr.race_id || 0),
-    name: sr.races?.name || 'Carrera Desconocida',
-    location: sr.races?.location || 'TBD',
-    date: sr.race_date ? new Date(sr.race_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD',
-    status: sr.status === 'completed' ? 'completed' : 'upcoming',
-    trackMap: sr.races?.circuits?.map_image_url || sr.track_map_url,
-    description: sr.races?.description,
-    officialWeb: sr.races?.official_web,
-    seasonId: sr.season_id || 0,
-    seasonYear: sr.seasons?.year,
-    rawDate: sr.race_date,
-    circuit_id: sr.races?.circuits?.id
-  }));
+  return (data || []).map((sr: any) => {
+    const raceTableDate = sr.races?.race_date;
+    const effectiveDate = raceTableDate || sr.race_date;
+
+    return {
+      id: Number(sr.race_id || 0),
+      name: sr.races?.name || 'Carrera Desconocida',
+      location: sr.races?.location || 'TBD',
+      date: effectiveDate ? new Date(effectiveDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD',
+      status: (sr.races?.status === 'completed' || sr.status === 'completed') ? 'completed' : 'upcoming',
+      trackMap: sr.races?.circuits?.map_image_url || sr.track_map_url,
+      description: sr.races?.description,
+      officialWeb: sr.races?.official_web,
+      seasonId: sr.season_id || 0,
+      seasonYear: sr.seasons?.year,
+      rawDate: effectiveDate,
+      race_date: raceTableDate || sr.race_date,
+      circuit_id: sr.races?.circuits?.id
+    };
+  });
 };
 
 export const fetchCircuitDetails = async (circuitId: number) => {
@@ -889,7 +898,75 @@ export const fetchLatestRace = async (seasonYear: string): Promise<Race | null> 
   const races = await fetchRaces(seasonYear);
   // The user wants the first race that is NOT 'completed'
   const upcoming = races.filter(r => r.status !== 'completed');
-  return upcoming.length > 0 ? upcoming[0] : (races.length > 0 ? races[races.length - 1] : null);
+  const selectedRace = upcoming.length > 0 ? upcoming[0] : (races.length > 0 ? races[races.length - 1] : null);
+
+  if (selectedRace) {
+    try {
+      const { data: raceData } = await supabase
+        .from('races')
+        .select('race_date, status, name, location')
+        .eq('id', selectedRace.id)
+        .single();
+
+      if (raceData?.race_date) {
+        return {
+          ...selectedRace,
+          race_date: raceData.race_date,
+          rawDate: raceData.race_date,
+          status: (raceData.status === 'completed' || selectedRace.status === 'completed') ? 'completed' : 'upcoming'
+        };
+      }
+    } catch (e) {
+      console.warn('Error fetching race_date from races table:', e);
+    }
+  }
+
+  return selectedRace;
+};
+
+export const getMadridTimestamp = (dateStr?: string | null): number => {
+  if (!dateStr) return 0;
+  
+  // Extract date components: YYYY-MM-DD and optionally HH:mm:ss
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) {
+    return new Date(dateStr).getTime();
+  }
+  
+  const [, year, month, day, hour = '00', min = '00', sec = '00'] = match;
+  const tentativeUtc = Date.UTC(+year, +month - 1, +day, +hour, +min, +sec);
+  
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    
+    const parts = dtf.formatToParts(new Date(tentativeUtc));
+    const partMap: Record<string, string> = {};
+    parts.forEach(p => { partMap[p.type] = p.value; });
+    
+    const madridHour = parseInt(partMap.hour, 10) % 24;
+    const madridDay = parseInt(partMap.day, 10);
+    const madridMonth = parseInt(partMap.month, 10);
+    const madridYear = parseInt(partMap.year, 10);
+    const madridMin = parseInt(partMap.minute, 10);
+    const madridSec = parseInt(partMap.second, 10);
+    
+    const madridTimeAsUtc = Date.UTC(madridYear, madridMonth - 1, madridDay, madridHour, madridMin, madridSec);
+    const offset = tentativeUtc - madridTimeAsUtc;
+    
+    return tentativeUtc + offset;
+  } catch (err) {
+    console.error('Error calculating Madrid timestamp:', err);
+    return new Date(dateStr).getTime();
+  }
 };
 
 export interface SiteSettings {
@@ -983,6 +1060,10 @@ export const fetchDriverStats = async (driverId: number) => {
   const positions = carreraResults.map(r => r.position).filter(p => p > 0);
   const bestPosition = positions.length > 0 ? Math.min(...positions) : 0;
   const fastestLaps = carreraResults.filter(r => r.fastest_lap === true).length;
+  const sumPositions = carreraResults.reduce((sum, r) => sum + (r.position || 0), 0);
+  const averagePosition = carreraResults.length > 0
+    ? (sumPositions / carreraResults.length).toFixed(2)
+    : '--';
 
   return {
     racesDisputed: carreraResults.length,
@@ -991,7 +1072,8 @@ export const fetchDriverStats = async (driverId: number) => {
     poles,
     lapsLed: lapsLed || 0,
     fastestLaps,
-    bestPosition
+    bestPosition,
+    averagePosition
   };
 };
 
