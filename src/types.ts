@@ -445,7 +445,24 @@ export const fetchDrivers = async (seasonYear?: string): Promise<Driver[]> => {
     };
   });
 
-  return mappedDrivers.sort((a, b) => b.points - a.points).map((d, index) => ({
+  // Deduplicate drivers by driver_id, preserving the one from the most recent season
+  const uniqueDriversMap = new Map<number, typeof mappedDrivers[0]>();
+  for (const driver of mappedDrivers) {
+    const existing = uniqueDriversMap.get(driver.id);
+    if (!existing) {
+      uniqueDriversMap.set(driver.id, driver);
+    } else {
+      const existingYear = parseInt(existing.seasonYear || '0', 10);
+      const newYear = parseInt(driver.seasonYear || '0', 10);
+      if (newYear > existingYear || (newYear === existingYear && (driver.seasonId || 0) > (existing.seasonId || 0))) {
+        uniqueDriversMap.set(driver.id, driver);
+      }
+    }
+  }
+
+  const finalDrivers = Array.from(uniqueDriversMap.values());
+
+  return finalDrivers.sort((a, b) => b.points - a.points).map((d, index) => ({
     ...d,
     rank: index + 1
   }));
@@ -924,6 +941,51 @@ export const fetchLatestRace = async (seasonYear: string): Promise<Race | null> 
   return selectedRace;
 };
 
+export const getMadridTimestamp = (dateStr?: string | null): number => {
+  if (!dateStr) return 0;
+  
+  // Extract date components: YYYY-MM-DD and optionally HH:mm:ss
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) {
+    return new Date(dateStr).getTime();
+  }
+  
+  const [, year, month, day, hour = '00', min = '00', sec = '00'] = match;
+  const tentativeUtc = Date.UTC(+year, +month - 1, +day, +hour, +min, +sec);
+  
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    
+    const parts = dtf.formatToParts(new Date(tentativeUtc));
+    const partMap: Record<string, string> = {};
+    parts.forEach(p => { partMap[p.type] = p.value; });
+    
+    const madridHour = parseInt(partMap.hour, 10) % 24;
+    const madridDay = parseInt(partMap.day, 10);
+    const madridMonth = parseInt(partMap.month, 10);
+    const madridYear = parseInt(partMap.year, 10);
+    const madridMin = parseInt(partMap.minute, 10);
+    const madridSec = parseInt(partMap.second, 10);
+    
+    const madridTimeAsUtc = Date.UTC(madridYear, madridMonth - 1, madridDay, madridHour, madridMin, madridSec);
+    const offset = tentativeUtc - madridTimeAsUtc;
+    
+    return tentativeUtc + offset;
+  } catch (err) {
+    console.error('Error calculating Madrid timestamp:', err);
+    return new Date(dateStr).getTime();
+  }
+};
+
 export interface SiteSettings {
   id: number;
   hero_title: string;
@@ -960,6 +1022,20 @@ export const updateSiteSettings = async (settings: Partial<SiteSettings>) => {
     throw error;
   }
   return data;
+};
+
+export const calculateMedian = (values: (number | string | undefined | null)[]): string => {
+  if (!values || values.length === 0) return '--';
+  const valid = values
+    .map(v => (v !== undefined && v !== null && v !== '' ? Number(v) : NaN))
+    .filter(v => typeof v === 'number' && !isNaN(v) && v > 0);
+  if (valid.length === 0) return '--';
+  const sorted = [...valid].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const val = sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+  return Number.isInteger(val) ? val.toString() : val.toFixed(1);
 };
 
 export const fetchDriverStats = async (driverId: number) => {
@@ -1015,6 +1091,11 @@ export const fetchDriverStats = async (driverId: number) => {
   const positions = carreraResults.map(r => r.position).filter(p => p > 0);
   const bestPosition = positions.length > 0 ? Math.min(...positions) : 0;
   const fastestLaps = carreraResults.filter(r => r.fastest_lap === true).length;
+  const sumPositions = carreraResults.reduce((sum, r) => sum + (r.position || 0), 0);
+  const averagePosition = carreraResults.length > 0
+    ? (sumPositions / carreraResults.length).toFixed(2)
+    : '--';
+  const medianPosition = calculateMedian(positions);
 
   return {
     racesDisputed: carreraResults.length,
@@ -1023,7 +1104,9 @@ export const fetchDriverStats = async (driverId: number) => {
     poles,
     lapsLed: lapsLed || 0,
     fastestLaps,
-    bestPosition
+    bestPosition,
+    averagePosition,
+    medianPosition
   };
 };
 
