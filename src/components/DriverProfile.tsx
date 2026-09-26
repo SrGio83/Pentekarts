@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Driver, fetchDriverById, fetchDriverHistory, fetchDrivers, fetchDriverStats } from '../types';
+import { Driver, fetchDriverById, fetchDriverHistory, fetchDrivers, fetchDriverStats, calculateMedian } from '../types';
 import { supabase } from '../supabaseClient';
 import { Trophy, Award, MapPin, ChevronLeft, Calendar, Users, GitCompare, X, Search, Hash, Timer, FileText, LineChart as ChartIcon, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot } from 'recharts';
@@ -20,7 +20,8 @@ const DriverProfile = () => {
     poles: 0,
     fastestLaps: 0,
     bestPosition: 0,
-    averagePosition: '--'
+    averagePosition: '--',
+    medianPosition: '--'
   });
   
   // Comparison state
@@ -42,7 +43,23 @@ const DriverProfile = () => {
       ]).then(([driverData, historyData, driversData, statsData]) => {
         setDriver(driverData);
         setHistory(historyData);
-        setAllDrivers(driversData.filter(d => d.id !== Number(id)));
+
+        // Filter out current driver and ensure each driver appears only once
+        const seenIds = new Set<number>();
+        const seenNames = new Set<string>();
+        const uniqueDrivers: Driver[] = [];
+
+        for (const d of driversData) {
+          if (d.id === Number(id)) continue;
+          const normalizedName = d.name.trim().toLowerCase();
+          if (!seenIds.has(d.id) && !seenNames.has(normalizedName)) {
+            seenIds.add(d.id);
+            seenNames.add(normalizedName);
+            uniqueDrivers.push(d);
+          }
+        }
+
+        setAllDrivers(uniqueDrivers);
         setDriverStats(statsData);
         
         // Fetch detailed race results for this driver
@@ -272,11 +289,11 @@ const DriverProfile = () => {
                   </div>
                   <div className="flex justify-between items-end border-b border-white/10 pb-2">
                     <span className="text-4xl font-f1-bold italic">
-                      {raceResults.length > 0 ? (raceResults.reduce((s, r) => s + (r.position || 0), 0) / raceResults.length).toFixed(2) : '--'}
+                      {calculateMedian(raceResults.map(r => r.position))}
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">POS. MEDIA</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">POS. MEDIANA</span>
                     <span className="text-4xl font-f1-bold italic">
-                      {compareRaceResults.length > 0 ? (compareRaceResults.reduce((s, r) => s + (r.position || 0), 0) / compareRaceResults.length).toFixed(2) : '--'}
+                      {calculateMedian(compareRaceResults.map(r => r.position))}
                     </span>
                   </div>
                 </div>
@@ -376,9 +393,9 @@ const DriverProfile = () => {
                 </div>
                 <div className="bg-f1-black/5 p-4 rounded-sm text-center">
                   <TrendingUp size={24} className="mx-auto mb-2 text-f1-red" />
-                  <span className="block text-[10px] font-black opacity-40 uppercase">POSICIÓN MEDIA</span>
+                  <span className="block text-[10px] font-black opacity-40 uppercase">POSICIÓN MEDIANA</span>
                   <span className="text-2xl font-f1-bold italic">
-                    {driverStats.averagePosition !== undefined && driverStats.averagePosition !== '--' ? driverStats.averagePosition : '--'}
+                    {driverStats.medianPosition !== undefined && driverStats.medianPosition !== '--' ? driverStats.medianPosition : '--'}
                   </span>
                 </div>
               </div>
