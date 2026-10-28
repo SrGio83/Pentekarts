@@ -230,11 +230,11 @@ const TeamDetail = () => {
             >
               <div className="flex items-center p-6 gap-6 md:gap-8">
                 <div className="w-28 h-28 md:w-36 md:h-36 shrink-0 relative">
-                  <div className="absolute inset-0 bg-f1-black/5 rounded-sm skew-x-[-6deg]" />
+                  <div className="absolute inset-0 bg-f1-black/5 rounded-sm" />
                   <img 
                     src={driver.image || 'https://via.placeholder.com/400x400'} 
                     alt={driver.name}
-                    className="absolute inset-0 w-full h-full object-cover rounded-sm skew-x-[-6deg] border-2 border-white shadow-md relative z-10 group-hover:scale-105 transition-transform duration-500"
+                    className="absolute inset-0 w-full h-full object-cover rounded-sm border-2 border-white shadow-md relative z-10 group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
                 </div>
