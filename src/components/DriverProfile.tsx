@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Driver, fetchDriverById, fetchDriverHistory, fetchDrivers, fetchDriverStats, calculateMedian } from '../types';
+import { Driver, fetchDriverById, fetchDriverHistory, fetchDrivers, fetchDriverStats, calculateMedian, fetchSeasons } from '../types';
 import { supabase } from '../supabaseClient';
 import { Trophy, Award, MapPin, ChevronLeft, Calendar, Users, GitCompare, X, Search, Hash, Timer, FileText, LineChart as ChartIcon, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot } from 'recharts';
@@ -24,6 +24,10 @@ const DriverProfile = () => {
     medianPosition: '--'
   });
   
+  // Current season state
+  const [currentSeason, setCurrentSeason] = useState<string>('2026');
+  const [currentSeasonDrivers, setCurrentSeasonDrivers] = useState<Driver[]>([]);
+
   // Comparison state
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
@@ -31,6 +35,23 @@ const DriverProfile = () => {
   const [compareDriver, setCompareDriver] = useState<Driver | null>(null);
   const [compareHistory, setCompareHistory] = useState<any[]>([]);
   const [compareRaceResults, setCompareRaceResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchSeasons().then(async (seasonsData) => {
+      let seasonYear = '2026';
+      if (seasonsData && seasonsData.length > 0) {
+        const sorted = [...seasonsData].sort((a, b) => parseInt(a.year) - parseInt(b.year));
+        seasonYear = sorted[sorted.length - 1].year;
+      }
+      setCurrentSeason(seasonYear);
+      try {
+        const cDrivers = await fetchDrivers(seasonYear);
+        setCurrentSeasonDrivers(cDrivers);
+      } catch (err) {
+        console.error('Error fetching current season drivers:', err);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -106,7 +127,57 @@ const DriverProfile = () => {
     return sortedData;
   };
 
-  const totalPoints = history.reduce((sum, entry) => sum + (entry.points || 0), 0);
+  const calculateTotalPoints = (historyList: any[], driverId?: number) => {
+    if (!driverId) return 0;
+    const currentSeasonDriver = currentSeasonDrivers.find(d => d.id === driverId);
+    const dynamicCurrentPts = currentSeasonDriver?.points;
+
+    let hasCurrentSeasonInHistory = false;
+    let sum = 0;
+
+    historyList.forEach(entry => {
+      if (String(entry.seasonYear) === String(currentSeason)) {
+        hasCurrentSeasonInHistory = true;
+        const pts = (dynamicCurrentPts !== undefined && dynamicCurrentPts !== null && dynamicCurrentPts > 0)
+          ? dynamicCurrentPts
+          : (entry.points || 0);
+        sum += pts;
+      } else {
+        sum += (entry.points || 0);
+      }
+    });
+
+    if (!hasCurrentSeasonInHistory && dynamicCurrentPts && dynamicCurrentPts > 0) {
+      sum += dynamicCurrentPts;
+    }
+
+    return sum;
+  };
+
+  const getSeasonPointsDisplay = (driverId?: number, resultsList: any[] = []) => {
+    if (!driverId) return '-';
+    const seasonDriver = currentSeasonDrivers.find(d => d.id === driverId);
+    if (!seasonDriver) return '-';
+
+    const racesInSeason = resultsList.filter(r => {
+      const d = r.races?.race_date || r.race_date;
+      return d && new Date(d).getFullYear().toString() === currentSeason;
+    }).length;
+
+    const pts = seasonDriver.points;
+    if (pts === null || pts === undefined || pts <= 0 || racesInSeason <= 0) {
+      return '-';
+    }
+
+    return pts.toString();
+  };
+
+  const totalPoints = calculateTotalPoints(history, driver?.id);
+  const heroSeasonPoints = (currentSeasonDrivers.find(d => d.id === driver?.id)?.points ?? driver?.points) || 0;
+
+  const compareTotalPoints = compareDriver ? calculateTotalPoints(compareHistory, compareDriver.id) : 0;
+  const driverSeasonPointsDisplay = driver ? getSeasonPointsDisplay(driver.id, raceResults) : '-';
+  const compareSeasonPointsDisplay = compareDriver ? getSeasonPointsDisplay(compareDriver.id, compareRaceResults) : '-';
 
   const handleCompare = async (otherDriver: Driver) => {
     setCompareDriver(otherDriver);
@@ -216,7 +287,7 @@ const DriverProfile = () => {
                 <div className="flex flex-wrap justify-center lg:justify-start gap-8">
                   <div className="text-center lg:text-left">
                     <span className="block text-[10px] font-black opacity-40 uppercase tracking-widest mb-1">PUNTOS TEMPORADA</span>
-                    <span className="text-4xl font-f1-bold italic">{driver.points}</span>
+                    <span className="text-4xl font-f1-bold italic">{heroSeasonPoints}</span>
                   </div>
                   <div className="text-center lg:text-left">
                     <span className="block text-[10px] font-black opacity-40 uppercase tracking-widest mb-1">PUNTOS TOTALES</span>
@@ -268,14 +339,14 @@ const DriverProfile = () => {
 
                 <div className="space-y-6">
                   <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                    <span className="text-4xl font-f1-bold italic">{driver.points}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">PUNTOS</span>
-                    <span className="text-4xl font-f1-bold italic">{compareDriver.points}</span>
+                    <span className="text-4xl font-f1-bold italic">{totalPoints}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">PUNTOS TOTALES</span>
+                    <span className="text-4xl font-f1-bold italic">{compareTotalPoints}</span>
                   </div>
                   <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                    <span className="text-4xl font-f1-bold italic">#{driver.rank}</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">RANKING</span>
-                    <span className="text-4xl font-f1-bold italic">#{compareDriver.rank}</span>
+                    <span className="text-4xl font-f1-bold italic">{driverSeasonPointsDisplay}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">PUNTOS TEMPORADA ACTUAL</span>
+                    <span className="text-4xl font-f1-bold italic">{compareSeasonPointsDisplay}</span>
                   </div>
                   <div className="flex justify-between items-end border-b border-white/10 pb-2">
                     <span className="text-4xl font-f1-bold italic">{raceResults.filter(r => r.position === 1).length}</span>
